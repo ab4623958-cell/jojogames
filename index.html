@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JoJo的奇妙冒险：柱男BOSS篇</title>
+    <style>
+        body { 
+            background-color: #1a1a1a; 
+            color: #fff; 
+            font-family: "SimHei", "Microsoft YaHei", sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .game-box {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            height: 500px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #666;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #888;
+        }
+        input {
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 2px solid #666;
+            background-color: #444;
+            color: white;
+            width: 100px;
+        }
+        .title {
+            color: #ffd700;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">===== JoJo的奇妙冒险：柱男BOSS篇 =====</h1>
+    <div class="game-box" id="gameLog"></div>
+    <div id="inputArea"></div>
+
+    <script>
+        // 技能类
+        class Skill {
+            constructor(name, baseDamage, effect) {
+                this.name = name;
+                this.baseDamage = baseDamage;
+                this.effect = effect; // 1=暴击, 2=稳定, 3=回血, 4=降防, 5=3段连击, 6=群体伤害
+            }
+        }
+
+        // 角色类（替身使者）
+        class StandUser {
+            constructor(name, stand, hp, skills) {
+                this.name = name;
+                this.stand = stand;
+                this.hp = hp;
+                this.maxHP = hp;
+                this.skills = skills;
+                this.skillCount = skills.length;
+                this.defenseDown = false;
+            }
+
+            getHP() { return this.hp; }
+            getName() { return this.name; }
+            getStand() { return this.stand; }
+            getSkillCount() { return this.skillCount; }
+            getSkill(idx) { return this.skills[idx]; }
+            isDefenseDown() { return this.defenseDown; }
+            setDefenseDown(state) { this.defenseDown = state; }
+            resetHP() { this.hp = this.maxHP; }
+
+            useSkill(skill, target) {
+                let totalDamage = 0;
+                let log = "";
+
+                if (skill.effect === 1) { // 高暴击
+                    totalDamage = skill.baseDamage + (Math.floor(Math.random() * 12) - 3);
+                    if (Math.random() < 0.5) { // 50%暴击率
+                        totalDamage *= 2;
+                        log += "【超暴击！】";
+                    }
+                } else if (skill.effect === 2) { // 稳定
+                    totalDamage = skill.baseDamage + (Math.floor(Math.random() * 6) + 2);
+                } else if (skill.effect === 3) { // 回血
+                    totalDamage = skill.baseDamage + (Math.floor(Math.random() * 10) - 4);
+                    const heal = Math.floor(Math.random() * 11) + 15;
+                    this.hp = Math.min(this.hp + heal, this.maxHP);
+                    log += `【${this.name}大量回血！】`;
+                } else if (skill.effect === 4) { // 降防
+                    totalDamage = skill.baseDamage + (Math.floor(Math.random() * 9) - 3);
+                    target.setDefenseDown(true);
+                    log += `【${target.getName()}防御大幅下降！】`;
+                } else if (skill.effect === 5) { // 3段连击
+                    const hit1 = Math.floor(skill.baseDamage / 3) + (Math.floor(Math.random() * 7) - 2);
+                    const hit2 = Math.floor(skill.baseDamage / 3) + (Math.floor(Math.random() * 7) - 2);
+                    const hit3 = Math.floor(skill.baseDamage / 3) + (Math.floor(Math.random() * 7) - 2);
+                    totalDamage = hit1 + hit2 + hit3;
+                    log += "【3段连击！】";
+                } else if (skill.effect === 6) { // 群体伤害
+                    totalDamage = skill.baseDamage + (Math.floor(Math.random() * 8) - 2);
+                    log += "【范围攻击！】";
+                }
+
+                if (target.isDefenseDown()) {
+                    totalDamage = Math.floor(totalDamage * 1.2);
+                    target.setDefenseDown(false);
+                }
+                return { damage: totalDamage, log: log };
+            }
+
+            takeDamage(damage) {
+                if (damage < 0) {
+                    this.hp = Math.min(this.hp - damage, this.maxHP);
+                    return `${this.name}回复了${-damage}点HP！`;
+                }
+                this.hp -= damage;
+                if (this.hp < 0) this.hp = 0;
+                return `${this.name}受到${damage}点伤害！`;
+            }
+        }
+
+        // 游戏核心逻辑
+        class JojoGame {
+            constructor() {
+                this.logElement = document.getElementById("gameLog");
+                this.inputArea = document.getElementById("inputArea");
+                this.player = null;
+                this.initCharacters();
+                this.startGame();
+            }
+
+            // 初始化所有角色
+            initCharacters() {
+                // 花京院典明
+                const kakyoin = new StandUser(
+                    "花京院典明", "绿色法皇", 125,
+                    [
+                        new Skill("绿宝石喷射", 25, 5),
+                        new Skill("法皇结界", 22, 4),
+                        new Skill("法皇之绿束缚", 18, 2),
+                        new Skill("绿宝石水花", 30, 1)
+                    ]
+                );
+
+                // 西撒·齐贝林
+                const cesar = new StandUser(
+                    "西撒·齐贝林", "波纹气功", 135,
+                    [
+                        new Skill("泡沫波纹疾走", 26, 5),
+                        new Skill("波纹割刀", 24, 4),
+                        new Skill("泡沫阵", 20, 2),
+                        new Skill("终极波纹·青花鱼", 32, 1)
+                    ]
+                );
+
+                // 乔鲁诺（完全体）
+                const giornoComplete = new StandUser(
+                    "乔鲁诺·乔巴拿（完全体）", "黄金体验镇魂曲", 160,
+                    [
+                        new Skill("镇魂曲·归零打击", 40, 1),
+                        new Skill("生命创造·镇魂曲", 35, 3),
+                        new Skill("时删无效化", 30, 4),
+                        new Skill("黄金体验·绝对支配", 45, 5)
+                    ]
+                );
+
+                // 其他角色
+                this.players = [
+                    kakyoin,
+                    new StandUser("乔纳森·乔斯达", "波纹气功", 150, [
+                        new Skill("波纹直拳", 22, 2),
+                        new Skill("太阳波纹疾走", 25, 3),
+                        new Skill("波纹十字路", 18, 4)
+                    ]),
+                    new StandUser("乔瑟夫·乔斯达", "隐者之紫", 130, [
+                        new Skill("隐者之紫抽打", 20, 5),
+                        new Skill("波纹泡泡", 18, 4),
+                        new Skill("汤姆逊波纹弹", 24, 1)
+                    ]),
+                    new StandUser("空条承太郎", "白金之星", 140, [
+                        new Skill("流星指刺", 28, 1),
+                        new Skill("欧拉连打", 32, 5),
+                        new Skill("时间停止·5秒", 35, 1)
+                    ]),
+                    new StandUser("东方仗助", "疯狂钻石", 120, [
+                        new Skill("修复打击", 23, 3),
+                        new Skill("疯狂连击", 26, 5),
+                        new Skill("急救修复", 10, 3)
+                    ]),
+                    new StandUser("乔鲁诺·乔巴拿", "黄金体验", 110, [
+                        new Skill("生命赋予·拳头", 24, 2),
+                        new Skill("黄金体验镇魂曲", 38, 1),
+                        new Skill("植物生长", 15, 3)
+                    ]),
+                    new StandUser("空条徐伦", "石之自由", 105, [
+                        new Skill("线绳捆扎", 21, 4),
+                        new Skill("石之自由连击", 27, 5),
+                        new Skill("线缝修复", 12, 3)
+                    ]),
+                    cesar,
+                    giornoComplete
+                ];
+
+                // 敌人列表
+                this.enemies = [
+                    new StandUser("迪奥·布兰度", "世界", 160, [
+                        new Skill("木大拳", 29, 2),
+                        new Skill("时间停止·9秒", 36, 1),
+                        new Skill("吸血鬼吸血", 15, 3)
+                    ]),
+                    new StandUser("吉良吉影", "杀手皇后", 130, [
+                        new Skill("第一炸弹", 27, 1),
+                        new Skill("第二炸弹·穿心攻击", 22, 5),
+                        new Skill("第三炸弹·败者食尘", 30, 4)
+                    ]),
+                    new StandUser("迪亚波罗", "绯红之王", 140, [
+                        new Skill("时删突袭", 31, 1),
+                        new Skill("墓志铭预判", 20, 3),
+                        new Skill("绯红之王连击", 28, 5)
+                    ]),
+                    new StandUser("透龙", "Wonder Of U", 150, [
+                        new Skill("灾厄诱导", 26, 4),
+                        new Skill("因果律反转", 30, 1),
+                        new Skill("Calamity", 32, 6)
+                    ]),
+                    new StandUser("恩里克·普奇", "白蛇", 145, [
+                        new Skill("记忆抽取", 24, 2),
+                        new Skill("替身夺取", 28, 4),
+                        new Skill("新月", 33, 5)
+                    ])
+                ];
+
+                // BOSS列表
+                this.bosses = [
+                    new StandUser("风之柱男·瓦姆乌", "风之骑士", 200, [
+                        new Skill("风之绞刑", 35, 5),
+                        new Skill("神圣砂岚·改", 40, 6),
+                        new Skill("风之屏障", 20, 3),
+                        new Skill("风之预判", 30, 4)
+                    ]),
+                    new StandUser("炎之柱男·艾斯迪斯", "火焰使者", 220, [
+                        new Skill("火焰喷射", 38, 2),
+                        new Skill("热血奔流", 30, 3),
+                        new Skill("炎之拳", 42, 1),
+                        new Skill("火焰风暴", 25, 6)
+                    ]),
+                    new StandUser("终极柱男·卡兹", "石鬼面进化", 250, [
+                        new Skill("光流乱舞", 45, 5),
+                        new Skill("艾哲红石·完美吸收", 25, 3),
+                        new Skill("全能力爆发", 50, 1),
+                        new Skill("世界重构", 35, 4)
+                    ])
+                ];
+            }
+
+            // 显示日志
+            log(text) {
+                this.logElement.innerHTML += `<p>${text}</p>`;
+                this.logElement.scrollTop = this.logElement.scrollHeight; // 自动滚动到底部
+            }
+
+            // 清空输入区
+            clearInput() {
+                this.inputArea.innerHTML = "";
+            }
+
+            // 显示选项按钮
+            showOptions(options, callback) {
+                this.clearInput();
+                options.forEach((opt, idx) => {
+                    const btn = document.createElement("button");
+                    btn.textContent = opt;
+                    btn.onclick = () => callback(idx + 1); // 选项从1开始
+                    this.inputArea.appendChild(btn);
+                });
+            }
+
+            // 显示输入框（需要手动输入数字）
+            showInput(promptText, callback) {
+                this.clearInput();
+                this.log(promptText);
+                const input = document.createElement("input");
+                input.type = "number";
+                input.min = 1;
+                const btn = document.createElement("button");
+                btn.textContent = "确认";
+                btn.onclick = () => {
+                    const val = parseInt(input.value) || 1;
+                    callback(val);
+                };
+                this.inputArea.appendChild(input);
+                this.inputArea.appendChild(btn);
+            }
+
+            // 开始游戏：选择角色
+            startGame() {
+                this.log("【选择你的角色】");
+                this.players.forEach((p, idx) => {
+                    this.log(`${idx + 1}. ${p.getName()} - 能力：${p.getStand()}`);
+                });
+                this.showInput("输入编号(1-" + this.players.length + ")：", (choice) => {
+                    choice = Math.min(Math.max(choice, 1), this.players.length);
+                    this.player = this.players[choice - 1];
+                    this.log(`你选择了：${this.player.getName()}（${this.player.getStand()}）`);
+                    this.chooseMode();
+                });
+            }
+
+            // 选择模式
+            chooseMode() {
+                this.log("\n【选择模式】");
+                this.showOptions(
+                    ["1. 普通模式（挑战单个敌人）", "2. BOSS模式（挑战三大柱男）", "3. 训练场模式（练习技能）"],
+                    (mode) => {
+                        if (mode === 1) this.normalMode();
+                        else if (mode === 2) this.bossMode();
+                        else if (mode === 3) this.trainingMode();
+                    }
+                );
+            }
+
+            // 训练场模式
+            trainingMode() {
+                this.log("\n===== 训练场模式 =====");
+                this.log("在这里可以无限制练习技能，敌人不会攻击你！");
+                const dummy = new StandUser("练习假人", "无替身", 9999, []);
+
+                const showSkills = () => {
+                    this.log(`\n【你的回合】HP：${this.player.getHP()}`);
+                    this.log("选择技能（输入0退出训练场）：");
+                    this.player.skills.forEach((s, idx) => {
+                        let desc = "";
+                        if (s.effect === 1) desc = "[暴击率50%]";
+                        else if (s.effect === 3) desc = "[回血15-25]";
+                        else if (s.effect === 4) desc = "[大幅降防]";
+                        else if (s.effect === 5) desc = "[3段连击]";
+                        else desc = "[稳定伤害]";
+                        this.log(`${idx + 1}. ${s.name} (基础伤害：${s.baseDamage}) ${desc}`);
+                    });
+                    this.showInput("输入技能编号：", (choice) => {
+                        if (choice === 0) {
+                            this.log("退出训练场模式");
+                            this.chooseMode();
+                            return;
+                        }
+                        choice = Math.min(Math.max(choice, 1), this.player.getSkillCount());
+                        const skill = this.player.getSkill(choice - 1);
+                        const result = this.player.useSkill(skill, dummy);
+                        this.log(`${this.player.getName()}使用了${skill.name}！${result.log}`);
+                        const damageLog = dummy.takeDamage(result.damage);
+                        this.log(damageLog);
+                        this.log(`假人剩余HP：${dummy.getHP()}`);
+                        showSkills(); // 继续选择技能
+                    });
+                };
+                showSkills();
+            }
+
+// 普通模式（挑战单个敌人）
+normalMode() {
+this.log("\n===== 普通模式 =====");
+this.log("【选择对手】");
+this.enemies.forEach((e, idx) => {
+this.log(${idx + 1}. ${e.getName()} - 替身：${e.getStand()} | 生命值：${e.getHP()});
+});
+this.showInput("输入对手编号(1-" + this.enemies.length + ")：", (choice) => {
+choice = Math.min(Math.max(choice, 1), this.enemies.length);
+const enemy = this.enemies[choice - 1];
+this.log(\n===== 挑战${enemy.getName()}开始！ =====);
+this.log(${enemy.getName()}的替身${enemy.getStand()}出现了！);
+this.startBattle(this.player, enemy, () => this.chooseMode()); // 战斗结束后返回模式选择
+});
+}
+
+// BOSS模式（挑战三大柱男）
+bossMode() {
+this.log("\n===== 柱男BOSS模式开启！ =====");
+this.log("你需要依次击败三位柱男：瓦姆乌 → 艾斯迪斯 → 卡兹！");
+this.showInput("输入任意数字开始挑战：", () => {
+this.currentBossIndex = 0;
+this.fightNextBoss();
+});
+}
+
+// 依次挑战BOSS
+fightNextBoss() {
+if (this.currentBossIndex >= this.bosses.length) {
+this.log("\n===== 恭喜通关BOSS模式！ =====");
+this.log("你成功击败了所有柱男，拯救了世界！");
+this.chooseMode();
+return;
+}
+const currentBoss = this.bosses[this.currentBossIndex];
+this.log(\n===== 挑战${currentBoss.getName()} ====="); this.log({currentBoss.getName()}出现了！HP：{currentBoss.getHP()}); this.startBattle( this.player,  currentBoss,  (playerWon) => { if (playerWon) { this.log(\n恭喜！你击败了{currentBoss.getName()}！`);
+if (this.currentBossIndex < this.bosses.length - 1) {
+const heal = Math.floor(Math.random() * 50) + 50;
+this.log(this.player.takeDamage(-heal));
+this.log(`你获得了休整，回复了{heal}点HP！); } this.currentBossIndex++; this.fightNextBoss(); } else { this.log(\n你被${currentBoss.getName()}击败了...`);
+this.log("但柱男的威胁仍在，下次一定要赢回来！");
+this.chooseMode();
+}
+}
+);
+}
+
+// 通用战斗逻辑
+startBattle(player, enemy, onBattleEnd) {
+const battleTurn = () => {
+// 玩家回合
+this.log(\n【你的回合】HP：${player.getHP()});
+this.log("选择技能：");
+player.skills.forEach((s, idx) => {
+let desc = "";
+if (s.effect === 1) desc = "[暴击率50%]";
+else if (s.effect === 3) desc = "[回血15-25]";
+else if (s.effect === 4) desc = "[大幅降防]";
+else if (s.effect === 5) desc = "[3段连击]";
+else desc = "[稳定伤害]";
+this.log(${idx + 1}. ${s.name} (基础伤害：${s.baseDamage}) ${desc});
+});
+this.showInput("输入技能编号：", (choice) => {
+choice = Math.min(Math.max(choice, 1), player.getSkillCount());
+const pSkill = player.getSkill(choice - 1);
+this.log(${player.getName()}使用了${pSkill.name}！);
+const result = player.useSkill(pSkill, enemy);
+this.log(result.log);
+const damageLog = enemy.takeDamage(result.damage);
+this.log(damageLog);
+
+// 检查敌人是否被击败
+if (enemy.getHP() === 0) {
+onBattleEnd(true);
+return;
+}
+
+// 敌人回合
+setTimeout(() => { // 延迟一下，让玩家看清结果
+this.log(\n【${enemy.getName()}的回合】HP：${enemy.getHP()});
+const eSkillIdx = Math.floor(Math.random() * enemy.getSkillCount());
+const eSkill = enemy.getSkill(eSkillIdx);
+this.log(${enemy.getName()}使用了${eSkill.name}！);
+const eResult = enemy.useSkill(eSkill, player);
+this.log(eResult.log);
+const eDamageLog = player.takeDamage(eResult.damage);
+this.log(eDamageLog);
+
+// 检查玩家是否被击败
+if (player.getHP() === 0) {
+onBattleEnd(false);
+return;
+}
+
+// 继续战斗
+battleTurn();
+}, 1000);
+});
+};
+
+// 开始战斗循环
+battleTurn();
+}
+}
+
+// 启动游戏
+window.onload = () => new JojoGame();
+
+</body>
+</html>
